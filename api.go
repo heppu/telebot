@@ -32,7 +32,7 @@ func sendCommand(method, token string, params url.Values) ([]byte, error) {
 	return json, nil
 }
 
-func sendFile(method, token, name, path string, params url.Values) ([]byte, error) {
+func sendFromFile(method, token, name, path string, params url.Values) ([]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return []byte{}, err
@@ -42,6 +42,7 @@ func sendFile(method, token, name, path string, params url.Values) ([]byte, erro
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	part, err := writer.CreateFormFile(name, filepath.Base(path))
+
 	if err != nil {
 		return []byte{}, err
 	}
@@ -84,6 +85,60 @@ func sendFile(method, token, name, path string, params url.Values) ([]byte, erro
 	}
 
 	return json, nil
+}
+
+func sendFromUrl(method, token, name, photoUrl string, params url.Values) (json []byte, err error) {
+	var resp *http.Response
+
+	if resp, err = http.Get(photoUrl); err != nil {
+		return
+	}
+
+	defer resp.Body.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile(name, photoUrl)
+
+	if err != nil {
+		return []byte{}, err
+	}
+
+	if _, err = io.Copy(part, resp.Body); err != nil {
+		return []byte{}, err
+	}
+
+	for field, values := range params {
+		if len(values) > 0 {
+			writer.WriteField(field, values[0])
+		}
+	}
+
+	if err = writer.Close(); err != nil {
+		return []byte{}, err
+	}
+
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/%s", token, method)
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+	var newResp *http.Response
+	if newResp, err = client.Do(req); err != nil {
+		return
+	}
+
+	if newResp.StatusCode == http.StatusInternalServerError {
+		err = fmt.Errorf("telegram: internal server error")
+		return
+	}
+
+	json, err = ioutil.ReadAll(newResp.Body)
+	return
 }
 
 func embedSendOptions(params *url.Values, options *SendOptions) {

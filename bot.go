@@ -138,7 +138,7 @@ func (b *Bot) SendPhoto(recipient Recipient, photo *Photo, options *SendOptions)
 		params.Set("photo", photo.FileID)
 		responseJSON, err = sendCommand("sendPhoto", b.Token, params)
 	} else {
-		responseJSON, err = sendFile("sendPhoto", b.Token, "photo",
+		responseJSON, err = sendFromFile("sendPhoto", b.Token, "photo",
 			photo.filename, params)
 	}
 
@@ -169,6 +169,39 @@ func (b *Bot) SendPhoto(recipient Recipient, photo *Photo, options *SendOptions)
 	return nil
 }
 
+// SendPhotoFromURL downloads photo from url and sends a photo object to recipient.
+func (b *Bot) SendPhotoFromURL(recipient Recipient, photoUrl string, options *SendOptions) (err error) {
+	params := url.Values{}
+	params.Set("chat_id", strconv.Itoa(recipient.Destination()))
+	params.Set("caption", photoUrl)
+
+	if options != nil {
+		embedSendOptions(&params, options)
+	}
+
+	var responseJSON []byte
+
+	if responseJSON, err = sendFromUrl("sendDocument", b.Token, "document", photoUrl, params); err != nil {
+		return
+	}
+
+	var responseRecieved struct {
+		Ok          bool
+		Result      Message
+		Description string
+	}
+
+	err = json.Unmarshal(responseJSON, &responseRecieved)
+	if err != nil {
+		return err
+	}
+
+	if !responseRecieved.Ok {
+		return fmt.Errorf("telebot: %s", responseRecieved.Description)
+	}
+	return nil
+}
+
 // SendAudio sends an audio object to recipient.
 //
 // On success, audio object would be aliased to its copy on
@@ -190,7 +223,7 @@ func (b *Bot) SendAudio(recipient Recipient, audio *Audio, options *SendOptions)
 		params.Set("audio", audio.FileID)
 		responseJSON, err = sendCommand("sendAudio", b.Token, params)
 	} else {
-		responseJSON, err = sendFile("sendAudio", b.Token, "audio",
+		responseJSON, err = sendFromFile("sendAudio", b.Token, "audio",
 			audio.filename, params)
 	}
 
@@ -241,7 +274,7 @@ func (b *Bot) SendDocument(recipient Recipient, doc *Document, options *SendOpti
 		params.Set("document", doc.FileID)
 		responseJSON, err = sendCommand("sendDocument", b.Token, params)
 	} else {
-		responseJSON, err = sendFile("sendDocument", b.Token, "document",
+		responseJSON, err = sendFromFile("sendDocument", b.Token, "document",
 			doc.filename, params)
 	}
 
@@ -292,7 +325,7 @@ func (b *Bot) SendSticker(recipient Recipient, sticker *Sticker, options *SendOp
 		params.Set("sticker", sticker.FileID)
 		responseJSON, err = sendCommand("sendSticker", b.Token, params)
 	} else {
-		responseJSON, err = sendFile("sendSticker", b.Token, "sticker",
+		responseJSON, err = sendFromFile("sendSticker", b.Token, "sticker",
 			sticker.filename, params)
 	}
 
@@ -343,7 +376,7 @@ func (b *Bot) SendVideo(recipient Recipient, video *Video, options *SendOptions)
 		params.Set("video", video.FileID)
 		responseJSON, err = sendCommand("sendVideo", b.Token, params)
 	} else {
-		responseJSON, err = sendFile("sendVideo", b.Token, "video",
+		responseJSON, err = sendFromFile("sendVideo", b.Token, "video",
 			video.filename, params)
 	}
 
